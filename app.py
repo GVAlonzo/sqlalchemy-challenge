@@ -2,6 +2,7 @@ import numpy as np
 
 import sqlalchemy
 import datetime as dt
+from datetime import datetime
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
@@ -48,10 +49,15 @@ def home():
     """List all available api routes."""
     return (
         f"Available Routes:<br/>"
+        f"<br>\/ Return JSON list of Date and Precipitation from the dataset \/<br/>"
         f"/api/v1.0/precipitation<br/>"
+        f"<br>\/ Return JSON list of Stations from the dataset \/<br/>"
         f"/api/v1.0/stations<br/>"
+        f"<br>\/ Return JSON list of temperature observations (TOBS) for the previous year (most active Station) \/<br/>"
         f"/api/v1.0/tobs<br/>"
+        f"<br>\/ Return JSON list OF MIN, AVG, AND MAX temperatures >= date provided \/<br/>"
         f"/api/v1.0/YYYY-MM-DD<br/>"
+        f"<br>\/ Return JSON list OF MIN, AVG, AND MAX temperatures BETWEEN dates provided (inclusive) \/<br/>"
         f"/api/v1.0/YYYY-MM-DD/YYYY-MM-DD<br/>"
     )
 
@@ -73,14 +79,10 @@ def precipitation():
 
     # Convert list of tuples into normal list
     all_precip = []
-    #for id, station, date, prcp, tobs in results:
     for date, prcp in results:
         precip_dict = {}
-        #precip_dict["id"] = id
-        #precip_dict["station"] = station
         precip_dict["date"] = date
         precip_dict["prcp"] = prcp
-        #precip_dict["tobs"] = tobs
         all_precip.append(precip_dict)
 
     return jsonify(all_precip)
@@ -125,7 +127,9 @@ def tobs():
     results = session.query(Measurement.station,func.count(Measurement.station)).\
         group_by(Measurement.station).\
         order_by(func.count(Measurement.station).desc()).first()
-
+        
+    # ** THIS IS TO KEEP THE QUERY DYNAMIC IF THE DATABASE WERE TO GROW 
+    # ** WHILE REPORTING REQUIREMENTS REMAIN THE SAME
     top_station = results[0]
 
     results = session.query(func.max(Measurement.date)).\
@@ -133,27 +137,22 @@ def tobs():
 
     max_date = results[0][0]
 
-#################################################
-#################################################
-#################################################
-#
-# NEED TO CALC -365 DAYS & MAX_DATE INCLUDES HYPHENS
-#
-#################################################
-#################################################
-#################################################
+    # Convert max date to datetime, calculate -1 year, convert back into YYYY-MM-DD format for query
+    # ** THIS IS TO KEEP THE QUERY DYNAMIC IF THE DATABASE WERE TO GROW 
+    # ** WHILE REPORTING REQUIREMENTS REMAIN THE SAME
+    max_date_conv = datetime.strptime(max_date,'%Y-%m-%d' )
+    query_date = max_date_conv - dt.timedelta(days=365)
+    query_date_conv = query_date.strftime('%Y-%m-%d')
 
 
-    #query_date = max_date - dt.timedelta(days=365)
-
-    results = session.query(Measurement.date, Measurement.tobs).\
+    results = session.query(Measurement.tobs).\
         filter(Measurement.station == top_station).\
-        filter(Measurement.date >= query_date).all()
-
+        filter(Measurement.date >= query_date_conv).all()
+    alltemps = list(np.ravel(results))
 
     session.close()
 
-    return max_date
+    return jsonify(alltemps)
 
 
 #################################################
@@ -179,7 +178,7 @@ def start(start_dt):
     
     return jsonify(stats)
 
-
+#################################################
 
 @app.route("/api/v1.0/<start_dt>/<end_dt>")
 def startend(start_dt,end_dt):
