@@ -73,11 +73,15 @@ def precipitation():
     """Return a list of all measurement data"""
     # Query all measurements
     #results = session.query(Measurement.id, Measurement.station, Measurement.date, Measurement.prcp, Measurement.tobs).all()
-    results = session.query(Measurement.date, Measurement.prcp).all()
+    results = session.query(Measurement.date, Measurement.prcp).\
+        order_by(Measurement.date.asc()).all()
     
     session.close()
 
     # Convert list of tuples into normal list
+    
+    precip = {date: prcp for date, prcp in results}
+
     all_precip = []
     for date, prcp in results:
         precip_dict = {}
@@ -85,8 +89,7 @@ def precipitation():
         precip_dict["prcp"] = prcp
         all_precip.append(precip_dict)
 
-    return jsonify(all_precip)
-
+    return jsonify(precip)
 
 #################################################
 # STATIONS
@@ -98,22 +101,37 @@ def stations():
 
     """Return a list of all station data"""
     # Query all stations
-    results = session.query(Station.id, Station.station, Station.name, Station.latitude, Station.longitude, Station.elevation).all()
 
+    results = session.query(Station.station).all()
+    
     session.close()
 
-    # Convert list of tuples into normal list
-    all_stations = []
-    for id, station, name, latitude, longitude, elevation in results:
-        station_dict = {}
-        station_dict["id"] = id
-        station_dict["name"] = name
-        station_dict["latitude"] = latitude
-        station_dict["longitude"] = longitude
-        station_dict["elevation"] = elevation
-        all_stations.append(station_dict)
+    stations = list(np.ravel(results))
+    
+    return jsonify(station_list=stations)
 
-    return jsonify(all_stations)
+
+    # \/ THIS WORKS, TRYING ALTERNATE ROUTE
+    #results = session.query(Station.id, Station.station, Station.name, Station.latitude, Station.longitude, Station.elevation).all()
+    #
+    #session.close()
+
+    # Convert list of tuples into normal list
+    #all_stations = []
+    #for id, station, name, latitude, longitude, elevation in results:
+    #    station_dict = {}
+    #    station_dict["id"] = id
+    #    station_dict["name"] = name
+    #    station_dict["latitude"] = latitude
+    #    station_dict["longitude"] = longitude
+    #    station_dict["elevation"] = elevation
+    #    all_stations.append(station_dict)
+
+    #return jsonify(station=all_stations)
+    # /\ THIS WORKS, TRYING ALTERNATE ROUTE
+
+
+
 
 #################################################
 # TOBS
@@ -152,7 +170,7 @@ def tobs():
 
     session.close()
 
-    return jsonify(alltemps)
+    return jsonify(temps=alltemps)
 
 
 #################################################
@@ -176,7 +194,7 @@ def start(start_dt):
         stats_dict["max"] = max
         stats.append(stats_dict)
     
-    return jsonify(stats)
+    return jsonify(stats=stats)
 
 #################################################
 
@@ -199,7 +217,7 @@ def startend(start_dt,end_dt):
         stats_dict["max"] = max
         stats.append(stats_dict)
     
-    return jsonify(stats)
+    return jsonify(stats=stats)
 
 #################################################
 if __name__ == "__main__":
